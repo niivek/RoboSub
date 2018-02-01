@@ -1,4 +1,31 @@
-def direction_finder(x, y):
+import rospy
+from random import *
+
+def check_hardware(statement):
+    print('checking hardware...\n')
+    motorNodeIsReady = statement
+    cvNodeIsready = statement
+    startTakingPicture = statement
+    
+    if motorNodeIsReady:
+        print('motor node is on...')
+    if cvNodeIsready:
+        print('cv node is on...')
+    if startTakingPicture:
+        print('picture taking node is on...\n')
+
+    print('hardware is now active and ready\n')
+
+def receiveFromCv(xyCoordinates):
+    #the coordinates from CV will be retreived here
+    #it will then be appended to xyCoordinates list
+    xyCoordinates.append(randint(-100,100))
+    xyCoordinates.append(randint(-100,100))
+
+def direction_finder(xyCoordinates):
+    x = xyCoordinates[0]
+    y = xyCoordinates[1]
+
     if x < 0:
         print('move left by {}'.format(x))
         #direct AUV to move to the left by x 
@@ -26,59 +53,31 @@ def direction_finder(x, y):
     elif x > 0 and y < 0:
         print('Sub must move towards quadrant 4')
 
-def check_hardware(statement):
-    print('checking hardware...\n')
-    motorNodeIsReady = statement
-    cvNodeIsready = statement
-    startTakingPicture = statement
-    
-    if motorNodeIsReady:
-        print('motor node is on...')
-    if cvNodeIsready:
-        print('cv node is on...')
-    if startTakingPicture:
-        print('picture taking node is on...\n')
-
-    print('hardware is now active and ready\n')
+    resetVariables(xyCoordinates)
 
 def turn_off_hardware():
     motorNodeIsReady = False
     cvNodeIsready = False
     startTakingPicture = False
-    print('hardware nodes have now been turned off')
+    print('hardware nodes have now been turned off\n')
 
+def resetVariables(xyCoordinates):
+    xyCoordinates.pop()
+    xyCoordinates.pop()
 
 def main():
     motorNodeIsReady = False
     cvNodeIsready = False
     startTakingPicture = False
+    cvCoordinates = []
 
     check_hardware(True)
 
-    test_x = -20
-    test_y = -30
-    direction_finder(test_x, test_y)
-    print('')
-
-    test_x = 0
-    test_y = 60
-    direction_finder(test_x, test_y)
-    print('')
-
-    test_x = 20
-    test_y = 0
-    direction_finder(test_x, test_y)
-    print('')
-
-    test_x = 0
-    test_y = 0
-    direction_finder(test_x, test_y)
-    print('')
-
-    test_x = -30
-    test_y = 40
-    direction_finder(test_x, test_y)
-    print('')
+    #values will need to come in through the CV node
+    for i in range(5):
+        receiveFromCv(cvCoordinates)
+        direction_finder(cvCoordinates)
+        print('')
     
     turn_off_hardware()
 
