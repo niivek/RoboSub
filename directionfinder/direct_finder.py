@@ -1,12 +1,17 @@
 import rospy
 from random import *
+from std_msgs.msg import Int32
+import time
 
 def check_hardware(statement):
     print('checking hardware...\n')
     motorNodeIsReady = statement
     cvNodeIsready = statement
     startTakingPicture = statement
-    
+    magnetCheck = statement
+
+    if magnetCheck:
+        print('magnet in place to run mission...')
     if motorNodeIsReady:
         print('motor node is on...')
     if cvNodeIsready:
@@ -69,15 +74,27 @@ def main():
     motorNodeIsReady = False
     cvNodeIsready = False
     startTakingPicture = False
+    magnetCheck = False
     cvCoordinates = []
 
     check_hardware(True)
 
+    pub_x = rospy.Publisher('x_coordinate', Int32, queue_size=10)
+    pub_y = rospy.Publisher('y_coordinate', Int32, queue_size=10)
+
+    rospy.init_node('direction_node')
+
     #values will need to come in through the CV node
-    for i in range(5):
+    while not rospy.is_shutdown():
         receiveFromCv(cvCoordinates)
+
+        rospy.loginfo('testing ros coordinates')
+        pub_x.publish(cvCoordinates[0])
+        pub_y.publish(cvCoordinates[1])
+
         direction_finder(cvCoordinates)
         print('')
+        time.sleep(1)
     
     turn_off_hardware()
 
