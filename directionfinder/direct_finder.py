@@ -1,31 +1,92 @@
 import rospy
 from random import *
 from std_msgs.msg import Int32
+from std_msgs.msg import Int32MultiArray
 import time
+import sys
+sys.path.insert(0, '/home/niivek/Desktop/ros_libraries/openCV')
+
+from taskManager import taskManager
+
+motorNodeIsReady = False
+cvNodeIsready = False
+startTakingPicture = False
+magnetCheck = False
+
+gateComplete = False
+diceComplete = False
+rouletteComplete = False
+cashInCompplete = False
+buoyComplete = False
+tasksCompleted = False
 
 def check_hardware(statement):
     print('checking hardware...\n')
+
+    global motorNodeIsReady
+    global cvNodeIsready
+    global startTakingPicture
+    global magnetCheck
+
     motorNodeIsReady = statement
     cvNodeIsready = statement
     startTakingPicture = statement
     magnetCheck = statement
 
-    if magnetCheck:
-        print('magnet in place to run mission...')
-    if motorNodeIsReady:
-        print('motor node is on...')
-    if cvNodeIsready:
-        print('cv node is on...')
-    if startTakingPicture:
-        print('picture taking node is on...\n')
-
-    print('hardware is now active and ready\n')
-
 def receiveFromCv(xyCoordinates):
     #the coordinates from CV will be retreived here
     #it will then be appended to xyCoordinates list
-    xyCoordinates.append(randint(-100,100))
-    xyCoordinates.append(randint(-100,100))
+    global gateComplete
+    global diceComplete
+    global rouletteComplete
+    global cashInCompplete
+    global buoyComplete
+    global tasksCompleted
+
+    if not gateComplete:
+        gate = taskManager()
+        tempcords = gate.gateDetect()
+        print(tempcords)
+        xyCoordinates.append(tempcords[0])
+        xyCoordinates.append(tempcords[1])
+        #gateComplete = True
+
+    elif gateComplete and not diceComplete:
+        dice = taskManager()
+        tempcords = dice.diceDetect()
+        print(tempcords)
+        xyCoordinates.append(tempcords[0])
+        xyCoordinates.append(tempcords[1])
+        diceComplete = True
+
+    elif gateComplete and diceComplete and not rouletteComplete:
+        roulette = taskManager()
+        tempcords = roulette.rouletteDetect()
+        print(tempcords)
+        xyCoordinates.append(tempcords[0])
+        xyCoordinates.append(tempcords[1])
+        rouletteComplete = True
+    
+    elif gateComplete and diceComplete and rouletteComplete and not cashInCompplete:
+        cash = taskManager()
+        tempcords = cash.cashInDetect()
+        print(tempcords)
+        xyCoordinates.append(tempcords[0])
+        xyCoordinates.append(tempcords[1])
+        cashInCompplete = True
+    
+    elif gateComplete and diceComplete and rouletteComplete and cashInCompplete and not buoyComplete:
+        buoy = taskManager()
+        tempcords = buoy.buoyDetect()
+        print(tempcords)
+        xyCoordinates.append(tempcords[0])
+        xyCoordinates.append(tempcords[1])
+        buoyComplete = True
+    
+    else:
+        print('All tasks have been completed')
+        tasksCompleted = True
+
 
 def direction_finder(xyCoordinates):
     x = xyCoordinates[0]
@@ -61,42 +122,75 @@ def direction_finder(xyCoordinates):
     resetVariables(xyCoordinates)
 
 def turn_off_hardware():
+    global motorNodeIsReady
+    global cvNodeIsready
+    global startTakingPicture
+    global magnetCheck
+
     motorNodeIsReady = False
     cvNodeIsready = False
     startTakingPicture = False
-    print('hardware nodes have now been turned off\n')
+    magnetCheck = False
+
 
 def resetVariables(xyCoordinates):
     xyCoordinates.pop()
     xyCoordinates.pop()
 
+
 def main():
-    motorNodeIsReady = False
-    cvNodeIsready = False
-    startTakingPicture = False
-    magnetCheck = False
     cvCoordinates = []
 
     check_hardware(True)
 
+    if magnetCheck:
+        print('magnet in place to run mission...')
+    if motorNodeIsReady:
+        print('motor node is on...')
+    if cvNodeIsready:
+        print('cv node is on...')
+    if startTakingPicture:
+        print('picture taking node is on...\n')
+    if magnetCheck and motorNodeIsReady and cvNodeIsready and startTakingPicture:
+        print('hardware is now active and ready\n')
+
     pub_x = rospy.Publisher('x_coordinate', Int32, queue_size=10)
     pub_y = rospy.Publisher('y_coordinate', Int32, queue_size=10)
+    pub_both = rospy.Publisher('xy_coordinate', Int32MultiArray, queue_size=10)
 
     rospy.init_node('direction_node')
 
     #values will need to come in through the CV node
-    while not rospy.is_shutdown():
+    while not rospy.is_shutdown() and magnetCheck and motorNodeIsReady and cvNodeIsready and startTakingPicture:
         receiveFromCv(cvCoordinates)
+        
+        if tasksCompleted:
+            break
 
-        rospy.loginfo('testing ros coordinates')
+        array = []
+        array.append(cvCoordinates[0])
+        array.append(cvCoordinates[1])
+        
+        pub_array = Int32MultiArray(data=array)
+
+        rospy.loginfo('sending coordinates to ROS')
         pub_x.publish(cvCoordinates[0])
         pub_y.publish(cvCoordinates[1])
+        pub_both.publish(pub_array)
+        
+        #direction_finder(cvCoordinates)
+        #moved function to direct_sub.py
+        #so this will only publish values to ROS
 
-        direction_finder(cvCoordinates)
+        resetVariables(cvCoordinates)
+
         print('')
         time.sleep(1)
     
     turn_off_hardware()
+    if not magnetCheck and not motorNodeIsReady and not cvNodeIsready and not startTakingPicture:
+        print('hardware nodes have now been turned off\n')
+
 
 if __name__ == "__main__":
     main()
